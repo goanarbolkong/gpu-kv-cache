@@ -1,0 +1,20 @@
+# Build output
+build/
+cmake-build-*/
+
+# Benchmark + profiling artifacts
+results/*.csv
+results/*.png
+*.ncu-rep
+*.nsys-rep
+*.qdrep
+*.sqlite
+
+# Stray session/working logs
+logs.txt
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
