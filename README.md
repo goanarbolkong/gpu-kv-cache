@@ -1,5 +1,11 @@
 # GPU-Accelerated Key-Value Cache
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Language](https://img.shields.io/badge/CUDA%20C%2B%2B-17-76b900.svg?logo=nvidia&logoColor=white)
+![CUDA](https://img.shields.io/badge/CUDA%20Toolkit-13.3-76b900.svg)
+![Build](https://img.shields.io/badge/build-CMake%20%E2%89%A5%203.20-064f8c.svg)
+![Platform](https://img.shields.io/badge/GPU-NVIDIA%20sm__89-555.svg)
+
 A GPU-resident, open-addressing hash table in CUDA C++ that serves batched
 `PUT`/`GET` across thousands of threads, using atomic operations for concurrent
 inserts. It ships with two complementary table designs, a rigorous benchmark
@@ -54,6 +60,30 @@ In the bucketed table, a failed CAS triggers a **re-read of the bucket** rather
 than blindly advancing, so a concurrent same-key insert is caught by the match
 test and we never create duplicate keys. The test suite cross-checks both tables
 against `std::unordered_map` across inserts, updates, hits, and misses.
+
+## Usage
+
+Both tables expose the same small API (see [`include/gpu_hash_table.cuh`](include/gpu_hash_table.cuh)).
+Operations are batched, take **device** pointers, and launch asynchronously on the
+supplied stream:
+
+```cpp
+#include "gpu_hash_table.cuh"
+using namespace gpukv;
+
+// Provision capacity >= 2 * num_keys to keep the load factor <= 0.5.
+BucketedTable table(/*capacity=*/2 * n);     // or LinearProbeTable for sparse tables
+
+table.insert(d_keys, d_values, n);           // batched PUT (concurrent atomicCAS)
+table.find(d_query, d_out, q);               // batched GET
+cudaDeviceSynchronize();                     // ops are async; sync before reading back
+
+// d_out[i] == kNotFound marks a miss; re-inserting a key overwrites its value.
+```
+
+`./build/demo` is a complete, runnable version of the above. Reach for
+`LinearProbeTable` when the table stays sparse (load factor ≤ ~0.7) and
+`BucketedTable` when it runs fuller — see the [load-factor crossover](#results-highlights) below.
 
 ## Results highlights
 
@@ -143,4 +173,3 @@ docs/RESULTS.md        measured numbers + analysis
 ## License
 
 MIT — see [LICENSE](LICENSE).
-# gpu-kv-cache
